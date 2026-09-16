@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>製造所チェッカー（試作版）</title>
+<style>
+  :root { --green:#1d8a4e; --green-dark:#136b3a; --bg:#f4f8f5; --text:#26312a;
+          --muted:#6f7f74; --line:#dbe6dd; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:"Yu Gothic UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;
+         background:var(--bg); color:var(--text); }
+  .app { max-width:480px; margin:0 auto; min-height:100vh; padding-bottom:76px; }
+  header { background:var(--green); color:#fff; padding:14px 16px; position:sticky; top:0; z-index:50; }
+  header h1 { font-size:18px; }
+  header small { font-size:10.5px; opacity:.85; }
+  .tabs { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px;
+          display:flex; background:#fff; border-top:1px solid var(--line); z-index:60; }
+  .tabs button { flex:1; padding:10px 0 12px; border:none; background:none; font-size:11px;
+                 color:var(--muted); cursor:pointer; }
+  .tabs button .ico { display:block; font-size:22px; margin-bottom:2px; }
+  .tabs button.on { color:var(--green); font-weight:700; }
+  .page { display:none; padding:16px; }
+  .page.on { display:block; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px;
+          margin-bottom:14px; box-shadow:0 2px 6px rgba(0,0,0,.05); }
+  .card h2 { font-size:15px; margin-bottom:10px; }
+  label { font-size:12.5px; font-weight:700; display:block; margin:10px 0 4px; }
+  input[type=text] { width:100%; padding:12px; border:1.5px solid var(--line); border-radius:10px;
+                     font-size:16px; background:#fff; }
+  .btn { display:block; width:100%; border:none; border-radius:26px; padding:14px; font-size:15px;
+         font-weight:800; cursor:pointer; margin-top:10px; }
+  .btn-green { background:var(--green); color:#fff; }
+  .btn-green:active { background:var(--green-dark); }
+  .btn-sub { background:#fff; color:var(--green); border:2px solid var(--green); }
+  .btn-gray { background:#eef2ef; color:var(--muted); }
+  .hint { font-size:11.5px; color:var(--muted); line-height:1.7; margin-top:8px; }
+  .hit { background:#e8f7ee; border:2px solid var(--green); border-radius:14px; padding:16px;
+         margin-bottom:14px; }
+  .hit .fac { font-size:20px; font-weight:900; color:var(--green-dark); margin:6px 0; }
+  .hit .adr { font-size:13px; }
+  .hit .meta { font-size:11px; color:var(--muted); margin-top:8px; }
+  .item { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px;
+          margin-bottom:10px; }
+  .item b { font-size:14.5px; }
+  .item .sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .item .fac2 { font-size:13px; color:var(--green-dark); font-weight:700; margin-top:4px; }
+  .item .del { float:right; background:none; border:none; color:#c66; font-size:12px; cursor:pointer; }
+  video { width:100%; border-radius:12px; background:#000; }
+  .step { display:flex; gap:10px; margin:12px 0; align-items:flex-start; }
+  .step .n { background:var(--green); color:#fff; border-radius:50%; min-width:26px; height:26px;
+             display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; }
+  .step p { font-size:13px; line-height:1.7; }
+  .toast { position:fixed; bottom:86px; left:50%; transform:translateX(-50%);
+           background:rgba(30,40,34,.94); color:#fff; padding:12px 20px; border-radius:24px;
+           font-size:13px; font-weight:700; opacity:0; transition:.3s; pointer-events:none;
+           z-index:99; max-width:90%; text-align:center; }
+  .toast.show { opacity:1; }
+  .badge-demo { background:#fff3cd; border:1px solid #e8d88a; color:#7a6a20; border-radius:10px;
+                padding:9px 12px; font-size:11.5px; line-height:1.7; margin-bottom:14px; }
+  .notes { background:#fff; border:2px solid var(--green); border-radius:14px; padding:12px 14px;
+           margin-bottom:14px; }
+  .notes .ttl { font-size:12px; font-weight:800; color:var(--green-dark); }
+  .notes .nrow { border-top:1px dashed var(--line); padding:8px 0 6px; font-size:12.5px; line-height:1.6; }
+  .notes .nrow:first-of-type { border-top:none; margin-top:6px; }
+  .notes .nfac { color:var(--green-dark); font-weight:800; font-size:13.5px; }
+  .notes .ndel { float:right; background:none; border:none; color:#c66; font-size:11px; cursor:pointer; padding:2px 4px; }
+  .notes .nmeta { font-size:10.5px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>🏭 製造所チェッカー <small>試作版</small></h1>
+    <small>バーコード・製造所固有記号から「どこで作られたか」を調べて記録</small>
+  </header>
+
+  <!-- ============ 調べる ============ -->
+  <div class="page on" id="pg-check">
+    <div class="badge-demo">📱 試作版です。一度調べた商品はこのスマホ（ブラウザ）に記録され、<b>2回目からは撮るだけ・入れるだけで即表示</b>されます。</div>
+
+    <div id="hitBox"></div>
+    <div id="noteBox"></div>
+
+    <div class="card">
+      <h2>① 商品のバーコード（JANコード）</h2>
+      <div id="camArea"></div>
+      <button class="btn btn-sub" id="camBtn" onclick="toggleCam()">📷 カメラでバーコードを読む</button>
+      <label>または数字を入力（バーコード下の13桁）</label>
+      <input type="text" id="jan" inputmode="numeric" placeholder="例）4901234567894"
+             oninput="onJanInput()">
+      <div class="hint" id="janInfo"></div>
+    </div>
+
+    <div class="card" id="newForm">
+      <h2>② はじめての商品なら、ここで調べて記録</h2>
+      <label>商品名（自分がわかる名前でOK）</label>
+      <input type="text" id="pname" placeholder="例）○○ヨーグルト 400g">
+      <label>販売者名（パッケージの「販売者」欄）</label>
+      <input type="text" id="seller" placeholder="例）株式会社□□">
+      <button class="btn btn-sub" style="margin-top:2px"
+        onclick="document.getElementById('photoIn').click()">📷 写真で読み取る（何枚でも追加OK）</button>
+      <input type="file" id="photoIn" accept="image/*" capture="environment" style="display:none"
+        onchange="ocrPhoto(this.files[0])">
+      <div class="hint">場所が離れていても大丈夫。<b>1枚目＝「名称・販売者」の表示欄</b>、<b>2枚目＝「＋記号」の部分（賞味期限の近くが多い）</b>のように分けて撮ってください。読めた項目から順に埋まります（すでに入っている欄は上書きしません）。</div>
+      <div class="hint" style="background:#e8f1fb;border:1px solid #b9d4f2;border-radius:8px;padding:8px 10px">
+      🍎 <b>iPhoneの方はこちらが確実：</b>入力欄を2回タップして出るメニューの「<b>テキストをスキャン</b>」（カメラのマーク）を押すと、Apple純正の高精度読み取りでカメラから直接文字が入ります。</div>
+      <div class="hint" id="ocrStat" style="white-space:pre-line"></div>
+      <label>製造所固有記号（＋の後ろの記号）</label>
+      <input type="text" id="code" placeholder="例）ABC12" oninput="onCodeInput()">
+      <div class="hint" id="codeHit"></div>
+      <button class="btn btn-green" onclick="searchCAA()">🔍 記号をコピーして消費者庁DBで調べる</button>
+      <div class="hint">タップすると記号をコピーして公式データベースが開きます。販売者名と記号で検索すると製造所がわかります。</div>
+      <label>調べてわかった製造所（工場名・場所）</label>
+      <input type="text" id="factory" placeholder="例）△△食品 山口工場">
+      <input type="text" id="addr" placeholder="例）山口県山口市○○ （任意）" style="margin-top:6px">
+      <button class="btn btn-green" onclick="saveItem()">💾 この商品を記録する</button>
+    </div>
+  </div>
+
+  <!-- ============ マイ商品帳 ============ -->
+  <div class="page" id="pg-book">
+    <div class="card"><h2>📒 マイ商品帳（調べた商品の記録）</h2>
+      <div class="hint">ここに貯まるほど、次の買い物が速くなります。</div>
+    </div>
+    <div id="bookList"></div>
+  </div>
+
+  <!-- ============ 使い方 ============ -->
+  <div class="page" id="pg-help">
+    <div class="card">
+      <h2>❓ このアプリでできること</h2>
+      <p style="font-size:13px;line-height:1.8">スーパーの商品が「実際はどこの工場で作られたか」を調べて記録できます。バーコード（JAN）でわかるのは<b>販売会社まで</b>。工場を知る鍵は、パッケージにある<b>製造所固有記号</b>（＋マークの後ろの記号）です。</p>
+    </div>
+    <div class="card">
+      <h2>🔰 使い方</h2>
+      <div class="step"><div class="n">1</div><p>商品のバーコードをカメラで読む（または13桁を入力）</p></div>
+      <div class="step"><div class="n">2</div><p><b>記録済みの商品なら、その場で製造所が表示されます</b>（ここが本領！よく買う物は2回目から一瞬）</p></div>
+      <div class="step"><div class="n">3</div><p>はじめての商品は、<b>「＋記号」の部分を写真で撮ると自動で読み取り</b>ます（読み取れなければ手入力もOK）。ボタンを押すと記号がコピーされ、消費者庁の公式データベースが開くので、貼り付けて検索</p></div>
+      <div class="step"><div class="n">4</div><p>わかった製造所を記録すれば、次からは自動表示</p></div>
+    </div>
+    <div class="card">
+      <h2>📌 メモ</h2>
+      <p style="font-size:12.5px;line-height:1.8;color:var(--muted)">
+      ・製造所固有記号がなく「製造所」欄に直接工場が書いてある商品は、そのまま記録すればOK<br>
+      ・データはこの端末の中だけに保存されます（外部送信なし）<br>
+      ・正式なアプリ版では、消費者庁DBへの問い合わせとOCR（記号の写真読み取り）を自動化できます</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="on" onclick="showTab('check', this)"><span class="ico">🔍</span>調べる</button>
+    <button onclick="showTab('book', this)"><span class="ico">📒</span>マイ商品帳</button>
+    <button onclick="showTab('help', this)"><span class="ico">❓</span>使い方</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const CAA_URL = 'https://www.fld.caa.go.jp/caaks/s/cksc01/';
+
+// ---------------- 写真からラベル（商品名・販売者・記号）を読み取る（OCR） ----------------
+function pickAfter(lines, keys) {
+  for (let i = 0; i < lines.length; i++) {
+    for (const k of keys) {
+      const idx = lines[i].indexOf(k);
+      if (idx >= 0) {
+        let rest = lines[i].slice(idx + k.length).replace(/^[:：\s]+/, '');
+        if (!rest && i + 1 < lines.length) rest = lines[i + 1];
+        if (rest) return rest.trim();
+      }
+    }
+  }
+  return '';
+}
+
+async function ocrPhoto(file) {
+  if (!file) return;
+  const stat = document.getElementById('ocrStat');
+  if (typeof Tesseract === 'undefined') {
+    toast('読み取り部品を読み込めませんでした（初回はインターネット接続が必要です）');
+    return;
+  }
+  stat.textContent = '🔎 写真から文字を読み取り中…（初回だけ日本語の読み取り部品を自動ダウンロードするため、1分ほどかかることがあります）';
+  try {
+    const img = await loadImage(file);
+    const cv = document.createElement('canvas');
+    const scale = Math.min(1, 1800 / Math.max(img.width, img.height));
+    cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(img, 0, 0, cv.width, cv.height);
+    // ドット印字（賞味期限印字など）対策: 縮小→拡大で点をつなげ、白黒コントラストを強調
+    try {
+      const half = document.createElement('canvas');
+      half.width = Math.max(1, Math.round(cv.width / 2));
+      half.height = Math.max(1, Math.round(cv.height / 2));
+      half.getContext('2d').drawImage(cv, 0, 0, half.width, half.height);
+      ctx.drawImage(half, 0, 0, cv.width, cv.height);
+      const d = ctx.getImageData(0, 0, cv.width, cv.height);
+      const p = d.data;
+      for (let i = 0; i < p.length; i += 4) {
+        let g = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
+        g = (g - 128) * 1.8 + 128;
+        p[i] = p[i + 1] = p[i + 2] = g < 0 ? 0 : g > 255 ? 255 : g;
+      }
+      ctx.putImageData(d, 0, 0);
+    } catch (e) {}
+    const res = await Tesseract.recognize(cv, 'jpn+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text') stat.textContent = '🔎 解析中… ' + Math.round(m.progress * 100) + '%';
+        else if (m.status) stat.textContent = '🔎 準備中… (' + m.status + ')';
+      }
+    });
+    const raw = (res.data.text || '').replace(/[ \t]+/g, ' ');
+    const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+    // 行ごとの「文字の大きさ」情報（大きい文字＝商品名の可能性大）
+    const tLines = (res.data.lines || []).map(l => ({
+      text: (l.text || '').trim().replace(/\s+/g, ' '),
+      h: l.bbox ? (l.bbox.y1 - l.bbox.y0) : 0,
+    })).filter(l => l.text.length >= 2);
+    const got = [];
+    const fillIfEmpty = (id, val) => {   // 既に入っている欄は上書きしない
+      const el = document.getElementById(id);
+      if (val && !el.value.trim()) { el.value = val; return true; }
+      return false;
+    };
+
+    // 記号（＋の後ろ）
+    const m = raw.toUpperCase().match(/[+＋十]\s*([A-Z0-9]{2,12})/);
+    if (m && fillIfEmpty('code', m[1])) got.push('記号:＋' + m[1]);
+
+    // ＋が読めなくても「日付（賞味期限）のすぐ横の英数字」を記号候補として拾う
+    if (!document.getElementById('code').value.trim()) {
+      const dm = raw.toUpperCase().match(/\d{2,4}[.\/]\s?\d{1,2}[.\/]\s?\d{1,2}[^A-Z0-9\n]{0,4}([A-Z0-9]{2,12})/);
+      if (dm && /[A-Z]/.test(dm[1]) && fillIfEmpty('code', dm[1])) got.push('記号(期限の横):' + dm[1]);
+    }
+
+    // 販売者（販売者/販売元/製造者/輸入者 の後ろ）
+    let seller = pickAfter(lines, ['販売者', '販売元', '製造者', '輸入者']);
+    if (!seller) {
+      const co = lines.find(l => /(株式会社|有限会社|合同会社|合資会社|（株）|\(株\)|（有）|\(有\)|㈱|㈲)/.test(l));
+      if (co) seller = co;
+    }
+    if (seller) seller = seller.replace(/[+＋]\s*[A-Za-z0-9]{2,12}.*$/, '').trim();
+    if (fillIfEmpty('seller', seller)) got.push('販売者:' + seller);
+
+    // 商品名（名称/品名 の後ろ）
+    const pname = pickAfter(lines, ['名称', '品名', '商品名']);
+    if (fillIfEmpty('pname', pname)) got.push('商品名:' + pname);
+
+    // 見出しが無ければ「一番大きな文字の行」を商品名として採用（パッケージ正面のロゴ対策）
+    if (!document.getElementById('pname').value.trim() && tLines.length) {
+      const big = tLines.filter(l => !/^[\d０-９\s\-\/.:：]+$/.test(l.text))
+                        .sort((a, b) => b.h - a.h)[0];
+      if (big && fillIfEmpty('pname', big.text)) got.push('商品名(大きな文字):' + big.text);
+    }
+
+    // いまの集まり具合をチェックリストで表示
+    const state = [
+      ['商品名', document.getElementById('pname').value.trim()],
+      ['販売者', document.getElementById('seller').value.trim()],
+      ['記号',   document.getElementById('code').value.trim()],
+    ];
+    const list = state.map(([k, v]) => (v ? '✅' : '⬜') + k).join(' ');
+    const missing = state.filter(([k, v]) => !v).map(([k]) => k);
+    let guide = '';
+    if (missing.length === 0) guide = ' → 3つそろいました！「🔍調べる」へ進めます';
+    else if (missing.includes('記号')) guide = ' → 次は「＋記号」の部分（賞味期限の近くが多い）を撮ってください';
+    else guide = ' → 次は「名称・販売者」の表示欄を撮ってください';
+
+    // 読めた行を「タップで割り当て」できるボタン付きで表示
+    window._ocrLines = tLines.sort((a, b) => b.h - a.h).slice(0, 6);
+    let chips = '';
+    if (window._ocrLines.length) {
+      const bs = 'border:1.5px solid #1d8a4e;background:#fff;color:#1d8a4e;border-radius:12px;'
+               + 'padding:2px 10px;font-size:11px;margin-left:4px;cursor:pointer';
+      chips = '<div style="margin-top:8px;border-top:1px dashed #cdd&#59;padding-top:6px"><b>📖 読めた文字（タップで欄に入れる）:</b></div>'
+        + window._ocrLines.map((l, i) =>
+          `<div style="margin-top:5px">「${esc(l.text.slice(0, 22))}」
+            <button style="${bs}" onclick="assignLine(${i},'pname')">商品名に</button>
+            <button style="${bs}" onclick="assignLine(${i},'seller')">販売者に</button>
+            <button style="${bs}" onclick="assignLine(${i},'code')">記号に</button>
+          </div>`).join('');
+    }
+    // 読み取った記号が「調べ済み」なら即表示、複数候補ならタップで選べる形で提案
+    if (!autoShowFromNotes()) onCodeInput();
+    if (got.length) {
+      stat.innerHTML = '📷 今回読めたもの: ' + esc(got.join(' ／ ')) + '<br>' + list + esc(guide) + chips;
+      toast('✅ ' + got.length + '項目ゲット！ ' + (missing.length ? 'あと' + missing.join('・') : '全部そろいました'));
+    } else {
+      stat.innerHTML = '⚠ 自動では判別できませんでした。' + list + esc(guide)
+        + (chips || '<br>（文字をまったく検出できませんでした。明るく・大きく・まっすぐ撮ってみてください）');
+    }
+  } catch (e) {
+    stat.textContent = '';
+    toast('読み取りに失敗しました。ラベルを明るく・大きく・まっすぐ写してみてください');
+  }
+}
+function assignLine(i, id) {
+  const l = (window._ocrLines || [])[i];
+  if (!l) return;
+  let v = l.text;
+  if (id === 'code') {  // 行の中の英数字のかたまり（最後のもの）を記号として採用
+    const t = v.toUpperCase().match(/[A-Z0-9]{2,12}/g);
+    v = t ? t[t.length - 1] : v;
+  }
+  document.getElementById(id).value = v;
+  if (id === 'code' && !autoShowFromNotes()) onCodeInput();
+  const nm = { pname: '商品名', seller: '販売者', code: '記号' }[id];
+  toast(nm + 'に入れました：' + String(v).slice(0, 20));
+}
+function loadImage(file) {
+  return new Promise((ok, ng) => {
+    const u = URL.createObjectURL(file);
+    const i = new Image();
+    i.onload = () => ok(i); i.onerror = ng; i.src = u;
+  });
+}
+
+const store = {
+  get items() { return JSON.parse(localStorage.getItem('seizo_items') || '[]'); },
+  set items(v) { localStorage.setItem('seizo_items', JSON.stringify(v)); },
+  get notes() {
+    const v = localStorage.getItem('seizo_notes');
+    return v ? JSON.parse(v) : seedNotes();
+  },
+  set notes(v) { localStorage.setItem('seizo_notes', JSON.stringify(v)); },
+};
+
+// ---------------- 調べた記号ノート（会社×記号ごとに1件、同じ組は上書き） ----------------
+function noteKey(seller, code) {
+  const s = (seller || '').replace(/\s+/g, '');
+  const c = (code || '').replace(/\s+/g, '').toUpperCase();
+  return (s || c) ? s + '|' + c : '';
+}
+function seedNotes() {   // 初回だけ：これまでのマイ商品帳から重複なしで作る
+  const notes = [];
+  for (const x of JSON.parse(localStorage.getItem('seizo_items') || '[]')) {
+    const k = noteKey(x.seller, x.code);
+    if (!x.factory || !k || notes.some(n => noteKey(n.seller, n.code) === k)) continue;
+    notes.push({ seller: x.seller || '', code: (x.code || '').toUpperCase(),
+                 factory: x.factory, addr: x.addr || '', date: x.date });
+  }
+  localStorage.setItem('seizo_notes', JSON.stringify(notes));
+  return notes;
+}
+function upsertNote(seller, code, factory, addr, date) {
+  const k = noteKey(seller, code);
+  if (!factory || !k) return;
+  const notes = store.notes.filter(n => noteKey(n.seller, n.code) !== k);
+  notes.unshift({ seller, code: (code || '').toUpperCase(), factory, addr, date });
+  store.notes = notes;
+  renderNotes();
+}
+function renderNotes() {
+  const notes = store.notes;
+  document.getElementById('noteBox').innerHTML = !notes.length ? '' : `
+    <div class="notes">
+      <span class="ttl">📖 調べた記号ノート（同じ会社×記号は1件にまとまります）</span>
+      ${notes.map((n, i) => `
+        <div class="nrow">
+          <button class="ndel" onclick="delNote(${i})">削除</button>
+          <b>${esc(n.seller || '(会社名なし)')}</b> ＋${esc(n.code || '-')}<br>
+          <span class="nfac">🏭 ${esc(n.factory)}</span>${n.addr ? `（${esc(n.addr)}）` : ''}
+          <span class="nmeta">${n.date}</span>
+        </div>`).join('')}
+    </div>`;
+}
+function delNote(i) {
+  const notes = store.notes; notes.splice(i, 1); store.notes = notes;
+  renderNotes(); toast('ノートから削除しました');
+}
+// 記号を入力したら、ノートに調べ済みの記号がないか確認して提案
+function onCodeInput() {
+  const c = document.getElementById('code').value.replace(/\s+/g, '').toUpperCase();
+  const box = document.getElementById('codeHit');
+  if (!c) { box.innerHTML = ''; return; }
+  const hits = store.notes.filter(n => n.code === c).slice(0, 3);
+  window._codeHits = hits;
+  box.innerHTML = !hits.length ? '' : '📌 <b>この記号は調べ済みです</b>（タップで工場名を入力）'
+    + hits.map((n, i) => `
+      <div style="margin-top:5px"><button style="border:1.5px solid #1d8a4e;background:#e8f7ee;color:#136b3a;
+        border-radius:10px;padding:6px 10px;font-size:12px;cursor:pointer;text-align:left"
+        onclick="useNote(${i})">${esc(n.seller || '(会社名なし)')} ＋${esc(n.code)} → 🏭 ${esc(n.factory)}</button></div>`).join('');
+}
+function useNote(i) {
+  const n = (window._codeHits || [])[i];
+  if (!n) return;
+  const fill = (id, v) => { const el = document.getElementById(id); if (v && !el.value.trim()) el.value = v; };
+  fill('factory', n.factory); fill('addr', n.addr); fill('seller', n.seller);
+  toast('🏭 ' + n.factory + ' を入力しました');
+}
+// 写真から読み取った記号がノートにあれば、タップ不要でその場に工場名を表示する
+function autoShowFromNotes() {
+  const c = document.getElementById('code').value.replace(/\s+/g, '').toUpperCase();
+  if (!c) return false;
+  let hits = store.notes.filter(n => n.code === c);
+  if (hits.length > 1) {   // 同じ記号を複数社が使っている場合は、読み取れた会社名で絞り込む
+    const s = (document.getElementById('seller').value || '').replace(/\s+/g, '');
+    const m = hits.filter(n => n.seller && s &&
+      (n.seller.replace(/\s+/g, '').includes(s) || s.includes(n.seller.replace(/\s+/g, ''))));
+    if (m.length === 1) hits = m;
+  }
+  if (hits.length !== 1) return false;
+  const n = hits[0];
+  const fill = (id, v) => { const el = document.getElementById(id); if (v && !el.value.trim()) el.value = v; };
+  fill('factory', n.factory); fill('addr', n.addr); fill('seller', n.seller);
+  document.getElementById('codeHit').innerHTML = `
+    <div class="hit" style="margin-top:8px">
+      ✅ <b>調べ済みの記号です！</b>
+      <div class="fac">🏭 ${esc(n.factory)}</div>
+      ${n.addr ? `<div class="adr">📍 ${esc(n.addr)}</div>` : ''}
+      <div class="meta">会社名: ${esc(n.seller || '-')} ／ 固有記号: ＋${esc(n.code)}（前回調べた日: ${n.date}）</div>
+    </div>`;
+  toast('✅ 調べ済み！ 🏭 ' + n.factory);
+  return true;
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function showTab(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('on'));
+  document.getElementById('pg-' + name).classList.add('on');
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  if (name === 'book') renderBook();
+  window.scrollTo(0, 0);
+}
+
+// ---------------- JAN入力 → キャッシュ即ヒット ----------------
+function onJanInput() {
+  const jan = document.getElementById('jan').value.replace(/[^0-9]/g, '');
+  const info = document.getElementById('janInfo');
+  const hitBox = document.getElementById('hitBox');
+  hitBox.innerHTML = '';
+  if (jan.length < 8) { info.textContent = ''; return; }
+  // 国コードのかんたん判定
+  const head = jan.slice(0, 2);
+  const country = (head === '45' || head === '49') ? '日本の事業者コード'
+    : head === '69' ? '中国の事業者コード'
+    : (head === '88' && jan[2] === '0') ? '韓国の事業者コード' : 'その他/不明の国コード';
+  info.textContent = `📦 ${country}（※これは「販売会社の登録国」。製造場所は固有記号で確認）`;
+  const hit = store.items.find(x => x.jan === jan);
+  if (hit) showHit(hit);
+}
+function showHit(item) {
+  document.getElementById('hitBox').innerHTML = `
+    <div class="hit">
+      ✅ <b>記録済みの商品です</b>
+      <div style="font-size:14px;margin-top:4px">${esc(item.name || '(名前未設定)')}</div>
+      <div class="fac">🏭 ${esc(item.factory)}</div>
+      ${item.addr ? `<div class="adr">📍 ${esc(item.addr)}</div>` : ''}
+      <div class="meta">販売者: ${esc(item.seller || '-')} ／ 固有記号: ${esc(item.code || '-')} ／ 記録日: ${item.date}</div>
+    </div>`;
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+// ---------------- 消費者庁DBを開く ----------------
+async function searchCAA() {
+  const code = document.getElementById('code').value.trim();
+  if (code) {
+    try { await navigator.clipboard.writeText(code); toast('記号「' + code + '」をコピーしました。開いたページに貼り付けて検索！'); }
+    catch (e) { toast('公式データベースを開きます'); }
+  } else {
+    toast('公式データベースを開きます（記号を入力しておくと自動コピーされます）');
+  }
+  window.open(CAA_URL, '_blank');
+}
+
+// ---------------- 記録 ----------------
+function saveItem() {
+  const jan = document.getElementById('jan').value.replace(/[^0-9]/g, '');
+  const factory = document.getElementById('factory').value.trim();
+  if (!factory) { toast('「調べてわかった製造所」を入力してください'); return; }
+  if (!jan && !document.getElementById('pname').value.trim()) {
+    toast('バーコードか商品名のどちらかは入れてください'); return;
+  }
+  const items = store.items.filter(x => !(jan && x.jan === jan));
+  items.unshift({
+    jan, name: document.getElementById('pname').value.trim(),
+    seller: document.getElementById('seller').value.trim(),
+    code: document.getElementById('code').value.trim(),
+    factory, addr: document.getElementById('addr').value.trim(),
+    date: new Date().toLocaleDateString('ja-JP'),
+  });
+  store.items = items;
+  upsertNote(items[0].seller, items[0].code, factory, items[0].addr, items[0].date);
+  toast('💾 記録しました！次からは入力するだけで表示されます');
+  ['pname','seller','code','factory','addr'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('codeHit').innerHTML = '';
+  onJanInput();
+}
+
+// ---------------- マイ商品帳 ----------------
+function renderBook() {
+  const items = store.items;
+  document.getElementById('bookList').innerHTML = items.length === 0
+    ? '<div class="card"><p style="font-size:13px;color:var(--muted)">まだ記録がありません。「調べる」から最初の1件を記録してみましょう。</p></div>'
+    : items.map((x, i) => `
+      <div class="item">
+        <button class="del" onclick="delItem(${i})">削除</button>
+        <b>${esc(x.name || x.jan || '(名前なし)')}</b>
+        <div class="sub">JAN: ${esc(x.jan || '-')} ／ 販売者: ${esc(x.seller || '-')} ／ 記号: ${esc(x.code || '-')}</div>
+        <div class="fac2">🏭 ${esc(x.factory)}${x.addr ? '（' + esc(x.addr) + '）' : ''}</div>
+      </div>`).join('');
+}
+function delItem(i) {
+  const items = store.items; items.splice(i, 1); store.items = items;
+  renderBook(); toast('削除しました');
+}
+
+// ---------------- カメラでバーコード読取り ----------------
+let camOn = false, camStream = null, camTimer = null;
+async function toggleCam() {
+  const area = document.getElementById('camArea');
+  const btn = document.getElementById('camBtn');
+  if (camOn) { stopCam(); return; }
+  if (!('BarcodeDetector' in window)) {
+    toast('この環境はカメラ読取り非対応です。数字入力をお使いください（Android Chrome推奨）');
+    return;
+  }
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+  } catch (e) { toast('カメラを起動できませんでした。数字入力をお使いください'); return; }
+  camOn = true;
+  btn.textContent = '⏹ カメラを止める';
+  area.innerHTML = '<video id="cam" autoplay playsinline muted></video>';
+  const video = document.getElementById('cam');
+  video.srcObject = camStream;
+  const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8'] });
+  camTimer = setInterval(async () => {
+    try {
+      const codes = await detector.detect(video);
+      if (codes.length) {
+        document.getElementById('jan').value = codes[0].rawValue;
+        onJanInput();
+        toast('📷 読み取りました: ' + codes[0].rawValue);
+        stopCam();
+      }
+    } catch (e) {}
+  }, 400);
+}
+function stopCam() {
+  camOn = false;
+  clearInterval(camTimer);
+  if (camStream) camStream.getTracks().forEach(t => t.stop());
+  document.getElementById('camArea').innerHTML = '';
+  document.getElementById('camBtn').textContent = '📷 カメラでバーコードを読む';
+}
+
+try { localStorage.removeItem('seizo_last'); renderNotes(); } catch (e) {}
+</script>
+</body>
+</html>
